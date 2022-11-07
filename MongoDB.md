@@ -326,7 +326,7 @@ Animal.on('index', error => {
 });
 ```
 
-#### Virtuals
+#### **Virtuals**
 
 Virtuals are document properties that you can get and set but that do not get persisted to MongoDB. The getters are useful for formatting or combining fields, while setters are useful for de-composing a single value into multiple values for storage.
 
@@ -472,3 +472,460 @@ const parentSchema = new Schema({
   }
 });
 ```
+
+### 5.2 Models
+
+Models are fancy constructors compiled from `Schema` definitions. An instance of a model is called a document. Models are responsible for creating and reading documents from the underlying MongoDB database.
+
+#### **Compiling your first model**
+
+When you call `mongoose.model()` on a schema, Mongoose compiles a model for you.
+
+```js
+const schema = new mongoose.Schema({ name: 'string', size: 'string' });
+const Tank = mongoose.model('Tank', schema);
+```
+
+The first argument is the singular name of the collection your model is for. **Mongoose automatically looks for the plural, lowercased version of your model name**. Thus, for the example above, the model Tank is for the tanks collection in the database.
+
+**Note**: The `.model()` function makes a copy of schema. Make sure that you've added everything you want to schema, including hooks, before calling `.model()`!
+
+#### **Constructing documents**
+
+An instance of a model is called a document. Creating them and saving to the database is easy.
+
+```js
+const Tank = mongoose.model('Tank', yourSchema);
+
+const small = new Tank({ size: 'small' });
+small.save(function (err) {
+  if (err) return handleError(err);
+  // saved!
+});
+
+// or
+
+Tank.create({ size: 'small' }, function (err, small) {
+  if (err) return handleError(err);
+  // saved!
+});
+
+// or, for inserting large batches of documents
+Tank.insertMany([{ size: 'small' }], function(err) {
+
+});
+```
+
+Note that no tanks will be created/removed until the connection your model uses is open. Every model has an associated connection. When you use mongoose.model(), your model will use the default mongoose connection.
+
+```js
+mongoose.connect('mongodb://localhost/gettingstarted');
+```
+
+If you create a custom connection, use that connection's `model()` function instead.
+
+```js
+const connection = mongoose.createConnection('mongodb://localhost:27017/test');
+const Tank = connection.model('Tank', yourSchema);
+```
+
+#### **Querying**
+
+Finding documents is easy with Mongoose, which supports the rich query syntax of MongoDB. Documents can be retrieved using a `model`'s find, findById, findOne, or where static methods.
+
+```js
+Tank.find({ size: 'small' }).where('createdDate').gt(oneYearAgo).exec(callback);
+```
+
+#### **Deleting**
+
+Models have static `deleteOne()` and `deleteMany()` functions for removing all documents matching the given filter.
+
+```js
+Tank.deleteOne({ size: 'large' }, function (err) {
+  if (err) return handleError(err);
+  // deleted at most one tank document
+});
+```
+
+#### **Updating**
+
+Each `model` has its own `update` method for modifying documents in the database without returning them to your application. See the API docs for more detail.
+
+```js
+Tank.updateOne({ size: 'large' }, { name: 'T-90' }, function(err, res) {
+  // Updated at most one doc, `res.nModified` contains the number
+  // of docs that MongoDB updated
+});
+```
+
+*If you want to update a single document in the db and return it to your application, use findOneAndUpdate instead.*
+
+#### **Change Streams**
+
+Change streams provide a way for you to listen to all inserts and updates going through your MongoDB database. Note that change streams do not work unless you're connected to a MongoDB replica set.
+
+```js
+async function run() {
+  // Create a new mongoose model
+  const personSchema = new mongoose.Schema({
+    name: String
+  });
+  const Person = mongoose.model('Person', personSchema);
+
+  // Create a change stream. The 'change' event gets emitted when there's a
+  // change in the database
+  Person.watch().
+    on('change', data => console.log(new Date(), data));
+
+  // Insert a doc, will trigger the change stream handler above
+  console.log(new Date(), 'Inserting doc');
+  await Person.create({ name: 'Axl Rose' });
+}
+```
+
+### 5.3 CRUD with Mongoose
+
+Mongoose models provide several static helper functions for CRUD operations. Each of these functions returns a mongoose Query object.
+
+A mongoose query can be executed in one of two ways. First, if you pass in a `callback` function, Mongoose will execute the query asynchronously and pass the results to the `callback`.
+
+A query also has a `.then()` function, and thus can be used as a promise.
+
+#### **Create (C)**
+
+* Create a model with the properties that you want
+* Save the model into a database with `.save()`
+
+```js
+const small = new Tank({ size: 'small' });
+small.save(function (err) {
+  if (err) return handleError(err);
+  // saved!
+});
+```
+
+#### **Read (R)**
+
+* You can you `.find()` to read the documents.
+
+```js
+// find all documents
+await MyModel.find({});
+
+// find all documents named john and at least 18
+await MyModel.find({ name: 'john', age: { $gte: 18 } }).exec();
+
+// executes, passing results to callback
+MyModel.find({ name: 'john', age: { $gte: 18 }}, function (err, docs) {});
+
+// executes, name LIKE john and only selecting the "name" and "friends" fields
+await MyModel.find({ name: /john/i }, 'name friends').exec();
+
+// passing options
+await MyModel.find({ name: /john/i }, null, { skip: 10 }).exec();
+```
+
+* If you want to read one document you can use `.findOne()`
+
+```js
+// Find one adventure whose `country` is 'Croatia', otherwise `null`
+await Adventure.findOne({ country: 'Croatia' }).exec();
+
+// using callback
+Adventure.findOne({ country: 'Croatia' }, function (err, adventure) {});
+
+// select only the adventures name and length
+await Adventure.findOne({ country: 'Croatia' }, 'name length').exec();
+```
+
+**Note**: `conditions` is optional, and if `conditions` is null or undefined, mongoose will send an empty `findOne` command to MongoDB, which will return an arbitrary document. If you're querying by `_id`, use `findById()` instead.
+
+#### **Update (U)**
+
+* You can use `.updateOne()` to update a document. MongoDB will update only the first document that matches filter regardless of the value of the multi option.
+
+```js
+const res = await Person.updateOne({ name: 'Jean-Luc Picard' }, { ship: 'USS Enterprise' });
+res.matchedCount; // Number of documents matched
+res.modifiedCount; // Number of documents modified
+res.acknowledged; // Boolean indicating everything went smoothly.
+res.upsertedId; // null or an id containing a document that had to be upserted.
+res.upsertedCount; // Number indicating how many documents had to be upserted. Will either be 0 or 1.
+```
+
+* Use `replaceOne()` if you want to overwrite an entire document rather than using atomic operators like `$set`.
+
+#### **Delete (D)**
+
+* You can use `.deleteOne()` to delete the first document that matches conditions from the collection. It returns an object with the property `deletedCount` indicating how many documents were deleted. Behaves like `remove()`, but deletes at most one document regardless of the `single` option.
+
+```js
+await Character.deleteOne({ name: 'Eddard Stark' }); // returns {deletedCount: 1}
+```
+
+### 5.4 Populate
+
+Mongoose has a more powerful alternative called `populate()`, which lets you reference documents in other collections.
+
+Population is the process of automatically replacing the specified paths in the document with document(s) from other collection(s). We may populate a single document, multiple documents, a plain object, multiple plain objects, or all objects returned from a query. Let's look at some examples.
+
+```js
+const mongoose = require('mongoose');
+const { Schema } = mongoose;
+
+const personSchema = Schema({
+  _id: Schema.Types.ObjectId,
+  name: String,
+  age: Number,
+  stories: [{ type: Schema.Types.ObjectId, ref: 'Story' }]
+});
+
+const storySchema = Schema({
+  author: { type: Schema.Types.ObjectId, ref: 'Person' },
+  title: String,
+  fans: [{ type: Schema.Types.ObjectId, ref: 'Person' }]
+});
+
+const Story = mongoose.model('Story', storySchema);
+const Person = mongoose.model('Person', personSchema);
+```
+
+So far we've created two Models. Our `Person` model has its `stories` field set to an array of `ObjectId`s. The `ref` option is what tells Mongoose which model to use during population, in our case the `Story model`. All `_id`s we store here must be document `_id`s from the `Story` model.
+
+#### **Saving refs**
+
+Saving refs to other documents works the same way you normally save properties, just assign the `_id` value:
+
+```js
+const author = new Person({
+  _id: new mongoose.Types.ObjectId(),
+  name: 'Ian Fleming',
+  age: 50
+});
+
+author.save(function (err) {
+  if (err) return handleError(err);
+
+  const story1 = new Story({
+    title: 'Casino Royale',
+    author: author._id    // assign the _id from the person
+  });
+
+  story1.save(function (err) {
+    if (err) return handleError(err);
+    // that's it!
+  });
+});
+```
+
+#### **Population**
+
+So far we haven't done anything much different. We've merely created a Person and a Story. Now let's take a look at populating our story's author using the query builder:
+
+```js
+Story.
+  findOne({ title: 'Casino Royale' }).
+  populate('author').
+  exec(function (err, story) {
+    if (err) return handleError(err);
+    console.log('The author is %s', story.author.name);
+    // prints "The author is Ian Fleming"
+  });
+```
+
+Populated paths are no longer set to their original `_id` , their value is replaced with the mongoose document returned from the database by performing a separate query before returning the results.
+
+Arrays of refs work the same way. Just call the populate method on the query and an array of documents will be returned in place of the original `_id`s.
+
+#### **Setting Populated Fields**
+
+You can manually populate a property by setting it to a document. The document must be an instance of the model your `ref` property refers to.
+
+```js
+Story.findOne({ title: 'Casino Royale' }, function(error, story) {
+  if (error) {
+    return handleError(error);
+  }
+  story.author = author;
+  console.log(story.author.name); // prints "Ian Fleming"
+});
+```
+
+#### **Checking Whether a Field is Populated**
+
+You can call the `populated()` function to check whether a field is populated. If `populated()` returns a truthy value, you can assume the field is populated.
+
+```js
+story.populated('author'); // truthy
+
+story.depopulate('author'); // Make `author` not populated anymore
+story.populated('author'); // undefined
+```
+
+A common reason for checking whether a path is populated is getting the `author` id. However, for your convenience, Mongoose adds a `_id` getter to ObjectId instances so you can use story.author._id regardless of whether `author` is populated.
+
+```js
+story.populated('author'); // truthy
+story.author._id; // ObjectId
+
+story.depopulate('author'); // Make `author` not populated anymore
+story.populated('author'); // undefined
+
+story.author instanceof ObjectId; // true
+story.author._id; // ObjectId, because Mongoose adds a special getter
+```
+
+#### **Field Selection**
+
+What if we only want a few specific fields returned for the populated documents? This can be accomplished by passing the usual field name syntax as the second argument to the populate method:
+
+```js
+Story.
+  findOne({ title: /casino royale/i }).
+  populate('author', 'name'). // only return the Persons name
+  exec(function (err, story) {
+    if (err) return handleError(err);
+
+    console.log('The author is %s', story.author.name);
+    // prints "The author is Ian Fleming"
+
+    console.log('The authors age is %s', story.author.age);
+    // prints "The authors age is null"
+  });
+```
+
+#### **Populating Multiple Paths**
+
+What if we wanted to populate multiple paths at the same time?
+
+```js
+Story.
+  find(...).
+  populate('fans').
+  populate('author').
+  exec();
+```
+
+If you call `populate()` multiple times with the same path, only the last one will take effect.
+
+```js
+// The 2nd `populate()` call below overwrites the first because they
+// both populate 'fans'.
+Story.
+  find().
+  populate({ path: 'fans', select: 'name' }).
+  populate({ path: 'fans', select: 'email' });
+// The above is equivalent to:
+Story.find().populate({ path: 'fans', select: 'email' });
+```
+
+#### **Query conditions and other options**
+
+What if we wanted to populate our fans array based on their age and select just their names?
+
+```js
+Story.
+  find().
+  populate({
+    path: 'fans',
+    match: { age: { $gte: 21 } },
+    // Explicitly exclude `_id`, see http://bit.ly/2aEfTdB
+    select: 'name -_id'
+  }).
+  exec();
+```
+
+The `match` option doesn't filter out `Story` documents. If there are no documents that satisfy `match`, you'll get a `Story` document with an empty `fans` array.
+
+In general, there is no way to make `populate()` filter stories based on properties of the story's `author`. For example, the below query won't return any results, even though `author` is populated.
+
+```js
+const story = await Story.
+  findOne({ 'author.name': 'Ian Fleming' }).
+  populate('author').
+  exec();
+story; // null
+```
+
+#### **limit vs. perDocumentLimit**
+
+Populate does support a `limit` option, however, it currently does not limit on a per-document basis for backwards compatibility. For example, suppose you have 2 stories:
+
+```js
+Story.create([
+  { title: 'Casino Royale', fans: [1, 2, 3, 4, 5, 6, 7, 8] },
+  { title: 'Live and Let Die', fans: [9, 10] }
+]);
+```
+
+If you were to `populate()` using the limit option, you would find that the 2nd story has 0 fans:
+
+```js
+const stories = await Story.find().populate({
+  path: 'fans',
+  options: { limit: 2 }
+});
+
+stories[0].name; // 'Casino Royale'
+stories[0].fans.length; // 2
+
+// 2nd story has 0 fans!
+stories[1].name; // 'Live and Let Die'
+stories[1].fans.length; // 0
+```
+
+That's because, in order to avoid executing a separate query for each document, Mongoose instead queries for fans using numDocuments * limit as the limit. If you need the correct limit, you should use the perDocumentLimit option (new in Mongoose 5.9.0). Just keep in mind that populate() will execute a separate query for each story, which may cause populate() to be slower.
+
+```js
+const stories = await Story.find().populate({
+  path: 'fans',
+  // Special option that tells Mongoose to execute a separate query
+  // for each `story` to make sure we get 2 fans for each story.
+  perDocumentLimit: 2
+});
+
+stories[0].name; // 'Casino Royale'
+stories[0].fans.length; // 2
+
+stories[1].name; // 'Live and Let Die'
+stories[1].fans.length; // 2
+```
+
+#### **Refs to children**
+
+We may find however, if we use the `author` object, we are unable to get a list of the stories. This is because no story objects were ever 'pushed' onto `author.stories`.
+
+There are two perspectives here. First, you may want the `author` to know which stories are theirs. Usually, your schema should resolve one-to-many relationships by having a parent pointer in the 'many' side. But, if you have a good reason to want an array of child pointers, you can `push()` documents onto the array as shown below.
+
+```js
+story1.save()
+
+author.stories.push(story1);
+author.save(callback);
+```
+
+This allows us to perform a `find` and `populate` combo:
+
+```js
+Person.
+  findOne({ name: 'Ian Fleming' }).
+  populate('stories'). // only works if we pushed refs to children
+  exec(function (err, person) {
+    if (err) return handleError(err);
+    console.log(person);
+  });
+```
+
+It is debatable that we really want two sets of pointers as they may get out of sync. Instead we could skip populating and directly `find()` the stories we are interested in.
+
+```js
+Story.
+  find({ author: author._id }).
+  exec(function (err, stories) {
+    if (err) return handleError(err);
+    console.log('The stories are an array: ', stories);
+  });
+```
+
+The documents returned from query population become fully functional, removeable, saveable documents unless the lean option is specified. Do not confuse them with sub docs. Take caution when calling its remove method because you'll be removing it from the database, not just the array.
