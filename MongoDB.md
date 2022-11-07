@@ -5,6 +5,7 @@
 * [3. Schema](#3-schema)
 * [4. Type of MongoDB](#4-type-of-mongodb)
 * [5. Mongoose](#5-mongoose)
+* [6. MongoDB Advanced](#6-mongodb-advanced)
 
 >## 1. ORM
 
@@ -929,3 +930,183 @@ Story.
 ```
 
 The documents returned from query population become fully functional, removeable, saveable documents unless the lean option is specified. Do not confuse them with sub docs. Take caution when calling its remove method because you'll be removing it from the database, not just the array.
+
+#### **Dynamic References via `refPath`**
+
+Mongoose can also populate from multiple collections based on the value of a property in the document. Let's say you're building a schema for storing comments. A user may comment on either a blog post or a product.
+
+```js
+const commentSchema = new Schema({
+  body: { type: String, required: true },
+  doc: {
+    type: Schema.Types.ObjectId,
+    required: true,
+    // Instead of a hardcoded model name in `ref`, `refPath` means Mongoose
+    // will look at the `onModel` property to find the right model.
+    refPath: 'docModel'
+  },
+  docModel: {
+    type: String,
+    required: true,
+    enum: ['BlogPost', 'Product']
+  }
+});
+
+const Product = mongoose.model('Product', new Schema({ name: String }));
+const BlogPost = mongoose.model('BlogPost', new Schema({ title: String }));
+const Comment = mongoose.model('Comment', commentSchema);
+```
+
+The refPath option is a more sophisticated alternative to ref. If ref is a string, Mongoose will always query the same model to find the populated subdocs. With refPath, you can configure what model Mongoose uses for each document.
+
+```js
+const book = await Product.create({ name: 'The Count of Monte Cristo' });
+const post = await BlogPost.create({ title: 'Top 10 French Novels' });
+
+const commentOnBook = await Comment.create({
+  body: 'Great read',
+  doc: book._id,
+  docModel: 'Product'
+});
+
+const commentOnPost = await Comment.create({
+  body: 'Very informative',
+  doc: post._id,
+  docModel: 'BlogPost'
+});
+
+// The below `populate()` works even though one comment references the
+// 'Product' collection and the other references the 'BlogPost' collection.
+const comments = await Comment.find().populate('doc').sort({ body: 1 });
+comments[0].doc.name; // "The Count of Monte Cristo"
+comments[1].doc.title; // "Top 10 French Novels"
+```
+
+#### **Populate Virtuals**
+
+Virtual populate means calling `populate()` on a virtual property that has a `ref` option as shown below.
+
+```js
+const AuthorSchema = new Schema({
+  name: String,
+  
+});
+
+const BlogPostSchema = new Schema({
+  title: String,
+  author: { type: mongoose.Schema.Types.ObjectId, ref: 'Author' },
+  comments: [{
+    author: { type: mongoose.Schema.Types.ObjectId, ref: 'Author' },
+    content: String
+  }]
+});
+
+AuthorSchema.virtual('posts', {
+  ref: 'BlogPost',
+  localField: '_id',
+  foreignField: 'author'
+});
+const Author = mongoose.model('Author', AuthorSchema, 'Author');
+const BlogPost = mongoose.model('BlogPost', BlogPostSchema, 'BlogPost');
+```
+
+You can then `populate()` the author's posts as shown below
+
+```js
+const author = await Author.findOne().populate('posts');
+
+author.posts[0].title; // Title of the first blog post
+```
+
+#### **Populate Maps**
+
+Maps are a type that represents an object with arbitrary string keys. For example, in the below schema, `members` is a map from strings to ObjectIds.
+
+```js
+const BandSchema = new Schema({
+  name: String,
+  members: {
+    type: Map,
+    of: {
+      type: 'ObjectId',
+      ref: 'Person'
+    }
+  }
+});
+const Band = mongoose.model('Band', bandSchema);
+```
+
+This map has a `ref`, which means you can use `populate()` to populate all the ObjectIds in the map. Suppose you have the below `band` document:
+
+```js
+const person1 = new Person({ name: 'Vince Neil' });
+const person2 = new Person({ name: 'Mick Mars' });
+
+const band = new Band({
+  name: 'Motley Crue',
+  members: {
+    'singer': person1._id,
+    'guitarist': person2._id
+  }
+});
+```
+
+You can populate() every element in the map by populating the special path `members.$*`. `$*` is a special syntax that tells Mongoose to look at every key in the map.
+
+```js
+const band = await Band.findOne({ name: 'Motley Crue' }).populate('members.$*');
+
+band.members.get('singer'); // { _id: ..., name: 'Vince Neil' }
+```
+
+#### **Transform populated documents**
+
+You can manipulate populated documents using the `transform` option. If you specify a transform function, Mongoose will call this function on every populated document in the result wiwith two arguments: the populated document, and the original id used to populate the document. This gives you more control over the result of the populate() execution. It is especially useful when you're populating multiple documents.
+
+You can return any value from `transform()`. For example, you can use transform() to "flatten" populated documents as follows.
+
+```js
+let doc = await Parent.create({ children: [ { name: 'Luke' }, { name: 'Leia' } ] });
+
+doc = await Parent.findById(doc).populate([{
+  path: 'children',
+  transform: doc => doc == null ? null : doc.name
+}]);
+
+doc.children; // ['Luke', 'Leia']
+```
+
+>## 6. MongoDB Advanced
+
+### 6.1 Aggregation
+
+An aggregation pipeline consists of one or more stages that process documents:
+
+* Each stage performs an operation on the input documents. For example, a stage can filter documents, group documents, and calculate values.
+* The documents that are output from a stage are passed to the next stage.
+* An aggregation pipeline can return results for groups of documents. For example, return the total, average, maximum, and minimum values.
+
+#### **Aggregation Pipeline Limits:**
+
+* Result Size Restrictions: The `aggregate` command can either return a cursor or store the results in a collection. Each document in the result set is subject to the 16 megabyte BSON Document Size limit. If any single document exceeds the BSON Document Size limit, the aggregation produces an error. The limit only applies to the returned documents. During the pipeline processing, the documents may exceed this size. The `db.collection.aggregate()` method returns a cursor by default
+* Number of Stages Restrictions: MongoDB 5.0 limits the number of aggregation pipeline stages allowed in a single pipeline to 1000.
+* Memory Restrictions: Starting in MongoDB 6.0, the allowDiskUseByDefault parameter controls whether pipeline stages that require more than 100 megabytes of memory to execute write temporary files to disk by default.
+
+The `$search` aggregation stage is not restricted to 100 megabytes of RAM because it runs in a separate process.
+
+#### **Different between Aggregation and MQL**
+
+* Aggregation has `$group` stage that divide data into multiples group in order to compute and reshape data. Non-filtering stages do not modify the original data. Instead they work with the data in the cursor (previous stage).
+
+### 6.2 Indexes
+
+Indexes support the efficient execution of queries in MongoDB. Without indexes, MongoDB must perform a collection scan, i.e. scan every document in a collection, to select those documents that match the query statement. If an appropriate index exists for a query, MongoDB can use the index to limit the number of documents it must inspect.
+
+Indexes are special data structures [1] that store a small portion of the collection's data set in an easy to traverse form. The index stores the value of a specific field or set of fields, ordered by the value of the field. The ordering of the index entries supports efficient equality matches and range-based query operations. In addition, MongoDB can return sorted results by using the ordering in the index.
+
+#### **Default `_id` Index**
+
+MongoDB creates a unique index on the `_id` field during the creation of a collection. The `_id` index prevents clients from inserting two documents with the same value for the `_id` field. You cannot drop this index on the `_id` field.
+
+#### **Index Types**
+
