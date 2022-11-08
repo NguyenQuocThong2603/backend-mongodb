@@ -1104,6 +1104,8 @@ Indexes support the efficient execution of queries in MongoDB. Without indexes, 
 
 Indexes are special data structures [1] that store a small portion of the collection's data set in an easy to traverse form. The index stores the value of a specific field or set of fields, ordered by the value of the field. The ordering of the index entries supports efficient equality matches and range-based query operations. In addition, MongoDB can return sorted results by using the ordering in the index.
 
+Cons: With each additional index, wwe decrease our write speed for a collection. We don't want to have too many unecessary indexes in a collection because they would be unnecessary loss in insert, update, delete performance 
+
 #### **Default `_id` Index**
 
 MongoDB creates a unique index on the `_id` field during the creation of a collection. The `_id` index prevents clients from inserting two documents with the same value for the `_id` field. You cannot drop this index on the `_id` field.
@@ -1112,7 +1114,7 @@ MongoDB creates a unique index on the `_id` field during the creation of a colle
 
 >**Single Field**
 
-In addition to the MongoDB-defined _id index, MongoDB supports the creation of user-defined ascending/descending indexes on a single field of a document.
+In addition to the MongoDB-defined `_id` index, MongoDB supports the creation of user-defined ascending/descending indexes on a single field of a document.
 
 >**Compound Index**
 
@@ -1153,12 +1155,15 @@ To index a field that holds an array value, MongoDB creates an index key for eac
 * For a compound multikey index, each indexed document can have at most one indexed field whose value is an array. That is:
   * You cannot create a compound multikey index if more than one to-be-indexed field of a document is an array
   * Or, if a compound multikey index already exists, you cannot insert a document that would violate this restriction.
+* Multikey Indexes don't support covered queries
 
 > **Text Indexes**
 
  A collection can only have one text search index, but that index can cover multiple fields.
 
  You can index multiple fields for the text index. The following example creates a `text` index on the fields `subject`and `comments`:
+
+The server is going to process this text field and create an index key for every unique word in the string
 
  ```js
 db.reviews.createIndex(
@@ -1168,3 +1173,125 @@ db.reviews.createIndex(
    }
  )
  ```
+
+**Cons**:
+
+* More keys to examine
+* Increased index size
+* Increased time to build index
+* Decreased write performance
+
+To prevent the cons above, we should creating a compound index.
+
+**Restrictions**:
+
+* **One Text Index Per Collection**
+  * A collection can have at most one text index.
+* **Text Search and Hints**
+  * You cannot use hint() if the query includes a $text query expression. 
+* **Text Index and Sort**
+  * Sort operations cannot obtain sort order from a text index, even from a compound text index
+* **Compound Index**
+
+**Storage Requirements and Performance Costs**:
+
+`text` indexes can be large. They contain one index entry for each unique post-stemmed word in each indexed field for each document inserted.
+
+Building a `text` index is very similar to building a large multi-key index and will take longer than building a simple ordered (scalar) index on the same data.
+
+When building a large text `index` on an existing collection, ensure that you have a sufficiently high limit on open file descriptors.
+
+`text` indexes will impact insertion throughput because MongoDB must add an index entry for each unique post-stemmed word in each indexed field of each new source document.
+
+Additionally, `text` indexes do not store phrases or information about the proximity of words in the documents. As a result, phrase queries will run much more effectively when the entire collection fits in RAM.
+
+### 6.3 Indexes Strategy
+
+> **The ESR Rule**
+
+**Equality**:
+
+Index searches make efficient use of exact matches to limit the number of documents that need to be examined to satisfy a query. Place fields that require exact matches first in your index.
+
+An index may have multiple keys for queries with exact matches. The index keys for equality matches can appear in any order. However, to satisfy an equality match with the index, all of the index keys for exact matches must come before any other index fields. MongoDB's search algorithm eliminates any need to arrange the exact match fields in a particular order.
+
+Exact matches should be selective. To reduce the number of index keys scanned, ensure equality tests eliminate at least 90% of possible document matches.
+
+**Sort**:
+
+"Sort" determines the order for results. Sort follows equality matches because the equality matches reduce the number of documents that need to be sorted. Sorting after the equality matches also allows MongoDB to do a non-blocking sort.
+
+An index can support sort operations when the query fields are a subset of the index keys. Sort operations on a subset of the index keys are only supported if the query includes equality conditions for all of the prefix keys that precede the sort keys.
+
+The following example queries the cars collection. The output is sorted by model:
+
+```js
+db.cars.find( { manufacturer: "GM" } ).sort( { model: 1 } )
+```
+
+To improve query performance, create an index on the manufacturer and model fields:
+
+```js
+db.cars.createIndex( { manufacturer: 1, model: 1 } )
+```
+
+**Range**:
+
+"Range" filters scan fields. The scan doesn't require an exact match, which means range filters are loosely bound to index keys. To improve query efficiency, make the range bounds as tight as possible and use equality matches to limit the number of documents that must be scanned.
+
+MongoDB cannot do an index sort on the results of a range filter. Place the range filter after the sort predicate so MongoDB can use a non-blocking index sort
+
+**Example**:
+
+The following query searches the cars collection for vehicles manufactured by Ford that cost more than $15,000 dollars. The results are sorted by model:
+
+```js
+db.cars.find(
+   {
+       manufacturer: 'Ford',
+       cost: { $gt: 10000 }
+   } ).sort( { model: 1 } )
+```
+
+Following the ESR rule, the optimal index for the example query is:
+
+```js
+{ manufacturer: 1, model: 1, cost: 1 }
+```
+
+>**Use Indexes to Sort Query Result**
+
+**Sort with a Single Field Index**:
+
+If an ascending or a descending index is on a single field, the sort operation on the field can be in either direction.
+
+For example, create an ascending index on the field a for a collection `records`:
+
+```js
+db.records.createIndex( { a: 1 } )
+```
+
+This index can support also an ascending and desending sort on a:
+
+```js
+db.records.find().sort( { a: 1 } )
+db.records.find().sort( { a: -1 } ) // This can work too
+```
+
+**Sort on Multiple Fields**:
+
+You can specify a sort on all the keys of the index or on a subset; however, the sort keys must be listed in the same order as they appear in the index. For example, an index key pattern `{ a: 1, b: 1 }` can support a sort on `{ a: 1, b: 1 }` but not on `{ b: 1, a: 1 }`.
+
+For a query to use a compound index for a sort, the specified sort direction for all keys in the cursor.sort() document must match the index key pattern or match the inverse of the index key pattern. For example, an index key pattern `{ a: 1, b: -1 }` can support a sort on `{ a: 1, b: -1 }` and `{ a: -1, b: 1 }` but not on `{ a: -1, b: -1 }` or `{a: 1, b: 1}`.
+
+**Sort and Index Prefix**:
+
+If the sort keys correspond to the index keys or an index prefix, MongoDB can use the index to sort the query results. A prefix of a compound index is a subset that consists of one or more keys at the start of the index key pattern.
+
+**Sort and Non-prefix Subset of an Index**:
+
+An index can support sort operations on a non-prefix subset of the index key pattern. To do so, the query must include **equality** conditions on all the prefix keys that precede the sort keys.
+
+If the query does **not** specify an equality condition on an index prefix that precedes or overlaps with the sort specification, the operation will **not** efficiently use the index.
+
+### 6.4 Data Modeling
