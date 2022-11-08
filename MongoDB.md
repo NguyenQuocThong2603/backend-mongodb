@@ -1110,3 +1110,61 @@ MongoDB creates a unique index on the `_id` field during the creation of a colle
 
 #### **Index Types**
 
+>**Single Field**
+
+In addition to the MongoDB-defined _id index, MongoDB supports the creation of user-defined ascending/descending indexes on a single field of a document.
+
+>**Compound Index**
+
+MongoDB supports compound indexes, where a single index structure holds references to multiple fields [1] within a collection's documents. The following diagram illustrates an example of a compound index on two fields:
+
+![compound Index](https://www.mongodb.com/docs/manual/images/index-compound-key.bakedsvg.svg)
+
+**Sort Order**: Indexes store references to fields in either ascending (1) or descending (-1) sort order. For single-field indexes, the sort order of keys doesn't matter because MongoDB can traverse the index in either direction. However, for compound indexes, sort order can matter in determining whether the index can support a sort operation.
+
+**Prefixes**: Index prefixes are the beginning subsets of indexed fields. For example, consider the following compound index:
+
+```js
+{ "item": 1, "location": 1, "stock": 1 }
+```
+
+For a compound index, MongoDB can use the index to support queries on the index prefixes. As such, MongoDB can use the index for queries on the following fields:
+
+* the `item` field,
+
+* the `item` field and the `location` field,
+
+* the `item`field and the `location` field and the `stock` field.
+
+MongoDB cannot use the index to support queries that include the following fields since without the item field, none of the listed fields correspond to a prefix index:
+
+* the `location` field,
+
+* the `stock` field, or
+
+* the `location` and `stock`fields.
+
+> **Multikey Indexes**
+
+To index a field that holds an array value, MongoDB creates an index key for each element in the array. These multikey indexes support efficient queries against array fields. Multikey indexes can be constructed over arrays that hold both scalar values [1] (e.g. strings, numbers) and nested documents.
+
+**Limitations**:
+
+* For a compound multikey index, each indexed document can have at most one indexed field whose value is an array. That is:
+  * You cannot create a compound multikey index if more than one to-be-indexed field of a document is an array
+  * Or, if a compound multikey index already exists, you cannot insert a document that would violate this restriction.
+
+> **Text Indexes**
+
+ A collection can only have one text search index, but that index can cover multiple fields.
+
+ You can index multiple fields for the text index. The following example creates a `text` index on the fields `subject`and `comments`:
+
+ ```js
+db.reviews.createIndex(
+   {
+     subject: "text",
+     comments: "text"
+   }
+ )
+ ```
