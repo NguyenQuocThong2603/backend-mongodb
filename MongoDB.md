@@ -1085,6 +1085,9 @@ An aggregation pipeline consists of one or more stages that process documents:
 * Each stage performs an operation on the input documents. For example, a stage can filter documents, group documents, and calculate values.
 * The documents that are output from a stage are passed to the next stage.
 * An aggregation pipeline can return results for groups of documents. For example, return the total, average, maximum, and minimum values.
+* Pipelines are always an array of one or more stages
+* Stages are composed of one or more aggregation operator or expressions.
+  * Expression may take a single argument or an array of arguments. This is expression depentdant
 
 #### **Aggregation Pipeline Limits:**
 
@@ -1098,13 +1101,327 @@ The `$search` aggregation stage is not restricted to 100 megabytes of RAM becaus
 
 * Aggregation has `$group` stage that divide data into multiples group in order to compute and reshape data. Non-filtering stages do not modify the original data. Instead they work with the data in the cursor (previous stage).
 
+#### **$match**
+
+Filters the documents to pass only the documents that match the specified condition(s) to the next pipeline stage.
+
+```js
+{ $match: { <query> } }
+```
+
+`$match` should be the first stage of aggregation.  Because `$match` limits the total number of documents in the aggregation pipeline, earlier `$match` operations minimize the amount of processing down the pipe.
+
+Retrictions:
+
+* The `$match` query syntax is identical to the read operation query syntax; i.e. `$match` does not accept raw aggregation expressions. To include aggregation expression in `$match`, use a `$expr` query expression:
+
+```js
+{ $match: { $expr: { <aggregation expression> } } }
+```
+
+* You cannot use `$where` in `$match` queries as part of the aggregation pipeline.
+* To use `$text` in the `$match`stage, the `$match`stage has to be the first stage of the pipeline. Views do not support text search.
+
+Examples:
+
+```js
+db.articles.aggregation([
+  {
+    $match: [author: "dave"]
+  }
+])
+```
+
+#### **$project**
+
+Passes along the documents with the requested fields to the next stage in the pipeline. The specified fields can be existing fields from the input documents or newly computed fields.
+
+The `$project`takes a document that can specify the inclusion of fields, the suppression of the `_id` field, the addition of new fields, and the resetting of the values of existing fields. Alternatively, you may specify the exclusion of fields.
+
+**Suppress the _id Field**:
+By default, the `_id` field is included in the output documents. To exclude the `_id` field from the output documents, you must explicitly specify the suppression of the `_id` field in `$project`
+
+**Path Collision Errors in Embedded Fields**:
+
+You cannot specify both an embedded document and a field within that embedded document in the same projection.
+
+The following `$project` stage fails with a `Path collision` error because it attempts to project both the embedded contact document and the `contact.address.country` field:
+
+```js
+{ $project: { contact: 1, "contact.address.country": 1 } } //error
+```
+
+**Restrictions**:
+
+An error is returned if the `$project` specification is an empty document.
+
+**Things to Remeber**:
+Once we specify one field to retain, we must specify all fields we want to retain. The `_id` field is the only exception to this
+
+Beyond simply removing and retaining fields, `$project` lets us add new fields
+
+`$project` can be used as many times as required within an Aggregation pipeline
+
+`$project` can be used to reassign values to existing field names and to derive entirely new fields
+
+**Example**:
+
+Consider a books collection with the following document:
+
+```js
+{
+  "_id" : 1,
+  title: "abc123",
+  isbn: "0001122223334",
+  author: { last: "zzz", first: "aaa" },
+  copies: 5,
+  lastModified: "2016-07-28"
+}
+```
+
+The following `$project` stage excludes the `author.first` and `lastModified` fields from the output:
+
+```js
+db.books.aggregation([
+  {
+    $project: {"athour.first": 0, lastModified: 0}
+  }
+])
+```
+
+#### **$geoNear**
+
+Outputs documents in order of nearest to farthest from a specified point.
+
+**Behavior**:
+You can only use `$geoNear` as the first stage of a pipeline.
+
+You must include the `distanceField` option. The `distanceField` option specifies the field that will contain the calculated distance.
+
+`$geoNear` requires a geospatial index.
+
+**Example**:
+
+Create a collection places with the following documents:
+
+```js
+db.places.insertMany( [
+   {
+      name: "Central Park",
+      location: { type: "Point", coordinates: [ -73.97, 40.77 ] },
+      category: "Parks"
+   },
+   {
+      name: "Sara D. Roosevelt Park",
+      location: { type: "Point", coordinates: [ -73.9928, 40.7193 ] },
+      category: "Parks"
+   },
+   {
+      name: "Polo Grounds",
+      location: { type: "Point", coordinates: [ -73.9375, 40.8303 ] },
+      category: "Stadiums"
+   }
+] )
+
+db.places.createIndex( { location: "2dsphere" } )
+```
+
+The places collection above has a `2dsphere` index. The following aggregation uses `$geoNear` to find documents with a location at most 2 meters from the center `[ -73.99279 , 40.719296 ]` and `category` equal to `Parks`.
+
+```js
+db.places.aggregate([
+  {
+    $geoNear: {
+      near: {type: "Point", coordinates: [-73.99279,40.719296]}
+      distanceField: "dist.calculated",
+      maxDistance: 2,
+      query: {category: "Parks"},
+      includeLocs: "dis.location",
+      spherical: true
+    }
+  }
+])
+// expected result
+{
+   "_id" : 8,
+   "name" : "Sara D. Roosevelt Park",
+   "category" : "Parks",
+   "location" : {
+      "type" : "Point",
+      "coordinates" : [ -73.9928, 40.7193 ]
+   },
+   "dist" : {
+      "calculated" : 0.9539931676365992,
+      "location" : {
+         "type" : "Point",
+         "coordinates" : [ -73.9928, 40.7193 ]
+      }
+   }
+}
+```
+
+`$geoNear` with the let option:
+
+```js
+db.places.aggregate([
+  {
+    $geoNear: {
+      "near": "$$pt",
+      "distanceField": "distance",
+      "maxDistance": 2,
+      "query": ["category": "Parks"],
+      "includeLocs": "dist.location",
+      "spherical": true
+    }
+  },
+  { $limit: 5 } //
+],
+{
+   "let":{ "pt": [ -73.99279, 40.719296 ] }
+}
+)
+```
+
+**Things to Remember**:
+
+The collection one and only one 2dsphere index
+
+If using 2dsphere, the distance is returned in meters. If using legacy coordinates, the distance return in radians
+
+`$geoNear` must be the first stage in an aggregation pipeline
+
+#### **sample Stages**
+
+Randomly selects the specified number of documents from the input documents.
+
+**Behavior**:
+
+If all of the following conditions are true, `$sample` uses a pseudo-random cursor to select the N documents:
+
+* `$sample` is the first stage of the pipeline.
+* N is less than 5% of the total documents in the collection.
+* The collection contains more than 100 documents.
+
+If any of the previous conditions are false, `$sample`
+
+* Reads all documents that are output from a preceding aggregation stage or a collection scan.
+* Performs a random sort to select N documents.
+
+**Example**:
+Given a collection named `users` with the following documents:
+
+```js
+{ "_id" : 1, "name" : "dave123", "q1" : true, "q2" : true }
+{ "_id" : 2, "name" : "dave2", "q1" : false, "q2" : false  }
+{ "_id" : 3, "name" : "ahn", "q1" : true, "q2" : true  }
+{ "_id" : 4, "name" : "li", "q1" : true, "q2" : false  }
+{ "_id" : 5, "name" : "annT", "q1" : false, "q2" : true  }
+{ "_id" : 6, "name" : "li", "q1" : true, "q2" : true  }
+{ "_id" : 7, "name" : "ty", "q1" : false, "q2" : true  }
+```
+
+The following aggregation operation randomly selects 3 documents from the collection:
+
+```js
+db.users.aggregate(
+   [ { $sample: { size: 3 } } ]
+)
+```
+
+#### **$group**
+
+The `$group` stage separates documents into groups according to a "group key". The output is one document for each unique group key.
+
+A group key is often a field, or group of fields. The group key can also be the result of an expression. Use the `_id` field in the `$group` pipeline stage to set the group key.
+
+**Example:**
+
+**Count the Number of Documents in a Collection:**
+
+Create a sample collection named sales with the following documents:
+
+```js
+db.sales.insertMany([
+  { "_id" : 1, "item" : "abc", "price" : NumberDecimal("10"), "quantity" : NumberInt("2"), "date" : ISODate("2014-03-01T08:00:00Z") },
+  { "_id" : 2, "item" : "jkl", "price" : NumberDecimal("20"), "quantity" : NumberInt("1"), "date" : ISODate("2014-03-01T09:00:00Z") },
+  { "_id" : 3, "item" : "xyz", "price" : NumberDecimal("5"), "quantity" : NumberInt( "10"), "date" : ISODate("2014-03-15T09:00:00Z") },
+  { "_id" : 4, "item" : "xyz", "price" : NumberDecimal("5"), "quantity" :  NumberInt("20") , "date" : ISODate("2014-04-04T11:21:39.736Z") },
+  { "_id" : 5, "item" : "abc", "price" : NumberDecimal("10"), "quantity" : NumberInt("10") , "date" : ISODate("2014-04-04T21:23:13.331Z") },
+  { "_id" : 6, "item" : "def", "price" : NumberDecimal("7.5"), "quantity": NumberInt("5" ) , "date" : ISODate("2015-06-04T05:08:13Z") },
+  { "_id" : 7, "item" : "def", "price" : NumberDecimal("7.5"), "quantity": NumberInt("10") , "date" : ISODate("2015-09-10T08:43:00Z") },
+  { "_id" : 8, "item" : "abc", "price" : NumberDecimal("10"), "quantity" : NumberInt("5" ) , "date" : ISODate("2016-02-06T20:20:13Z") },
+])
+```
+
+The following aggregation operation uses the `$group` stage to count the number of documents in the sales collection:
+
+```js
+db.sales.aggregate( [
+  {
+    $group: {
+       _id: null,
+       count: { $count: { } }
+    }
+  }
+] )
+
+// expected output
+{ "_id" : null, "count" : 8 }
+```
+
+**Calculate Count, Sum, and Average:**
+
+Create a sample collection named sales with the following documents:
+
+```js
+db.sales.insertMany([
+  { "_id" : 1, "item" : "abc", "price" : NumberDecimal("10"), "quantity" : NumberInt("2"), "date" : ISODate("2014-03-01T08:00:00Z") },
+  { "_id" : 2, "item" : "jkl", "price" : NumberDecimal("20"), "quantity" : NumberInt("1"), "date" : ISODate("2014-03-01T09:00:00Z") },
+  { "_id" : 3, "item" : "xyz", "price" : NumberDecimal("5"), "quantity" : NumberInt( "10"), "date" : ISODate("2014-03-15T09:00:00Z") },
+  { "_id" : 4, "item" : "xyz", "price" : NumberDecimal("5"), "quantity" :  NumberInt("20") , "date" : ISODate("2014-04-04T11:21:39.736Z") },
+  { "_id" : 5, "item" : "abc", "price" : NumberDecimal("10"), "quantity" : NumberInt("10") , "date" : ISODate("2014-04-04T21:23:13.331Z") },
+  { "_id" : 6, "item" : "def", "price" : NumberDecimal("7.5"), "quantity": NumberInt("5" ) , "date" : ISODate("2015-06-04T05:08:13Z") },
+  { "_id" : 7, "item" : "def", "price" : NumberDecimal("7.5"), "quantity": NumberInt("10") , "date" : ISODate("2015-09-10T08:43:00Z") },
+  { "_id" : 8, "item" : "abc", "price" : NumberDecimal("10"), "quantity" : NumberInt("5" ) , "date" : ISODate("2016-02-06T20:20:13Z") },
+])
+```
+
+The following pipeline calculates the total sales amount, average sales quantity, and sale count for each day in the year 2014:
+
+```js
+db.sales.aggregate([
+  {
+    $match: {"date": {$gte: new ISODate("2014-01-01"), $lte: new ISODate("2015-01-01")}}
+  },
+  {
+    $group: {
+      _id: {dateToString: {format: "%Y-%m-%d", date: "$date"}},
+      totalSaleAmount: {$sum: {$multiply: ["$price","$quantity"]}}
+      averageQuantity: {$avg: "$quantity"},
+      count: {$sum: 1}
+    }
+  },
+  {
+    $sort: {totalSaleAmount: -1}
+  }
+])
+
+//expected output
+{
+  "_id" : null,
+  "totalSaleAmount" : NumberDecimal("452.5"),
+  "averageQuantity" : 7.875,
+  "count" : 8
+}
+```
+
 ### 6.2 Indexes
 
 Indexes support the efficient execution of queries in MongoDB. Without indexes, MongoDB must perform a collection scan, i.e. scan every document in a collection, to select those documents that match the query statement. If an appropriate index exists for a query, MongoDB can use the index to limit the number of documents it must inspect.
 
 Indexes are special data structures [1] that store a small portion of the collection's data set in an easy to traverse form. The index stores the value of a specific field or set of fields, ordered by the value of the field. The ordering of the index entries supports efficient equality matches and range-based query operations. In addition, MongoDB can return sorted results by using the ordering in the index.
 
-Cons: With each additional index, wwe decrease our write speed for a collection. We don't want to have too many unecessary indexes in a collection because they would be unnecessary loss in insert, update, delete performance 
+Cons: With each additional index, wwe decrease our write speed for a collection. We don't want to have too many unecessary indexes in a collection because they would be unnecessary loss in insert, update, delete performance
 
 #### **Default `_id` Index**
 
@@ -1188,7 +1505,7 @@ To prevent the cons above, we should creating a compound index.
 * **One Text Index Per Collection**
   * A collection can have at most one text index.
 * **Text Search and Hints**
-  * You cannot use hint() if the query includes a $text query expression. 
+  * You cannot use hint() if the query includes a $text query expression.
 * **Text Index and Sort**
   * Sort operations cannot obtain sort order from a text index, even from a compound text index
 * **Compound Index**
