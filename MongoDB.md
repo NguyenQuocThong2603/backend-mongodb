@@ -1415,6 +1415,324 @@ db.sales.aggregate([
 }
 ```
 
+#### **$unwind**
+
+Deconstructs an array field from the input documents to output a document for each element. Each output document is the input document with the value of the array field replaced by the element.
+
+**Behaviors:**
+
+**Non-Array Field Path:**
+
+* When the operand does not resolve to an array, but is not missing, null, or an empty array, $unwind treats the operand as a single element array.
+* When the operand is null, missing, or an empty array $unwind follows the behavior set for the `preserveNullAndEmptyArrays` option.
+
+**Missing Field:**
+
+If you specify a path for a field that does not exist in an input document or the field is an empty array, `$unwind`, by default, ignores the input document and will not output documents for that input document.
+
+**Example:**
+
+Create a sample collection named inventory with the following document:
+
+```js
+db.inventory.insertOne({ "_id" : 1, "item" : "ABC1", sizes: [ "S", "M", "L"] })
+```
+
+The following aggregation uses the `$unwind` stage to output a document for each element in the sizes array:
+
+```js
+db.inventory.aggregate( [ { $unwind : "$sizes" } ] )
+
+//expected output
+{ "_id" : 1, "item" : "ABC1", "sizes" : "S" }
+{ "_id" : 1, "item" : "ABC1", "sizes" : "M" }
+{ "_id" : 1, "item" : "ABC1", "sizes" : "L" }
+```
+
+#### **$lookup**
+
+Performs a left outer join to a collection in the same database to filter in documents from the "joined" collection for processing. The `$lookup`stage adds a new array field to each input document. The new array field contains the matching documents from the "joined" collection. The `$lookup` stage passes these reshaped documents to the next stage
+
+**Syntax:**
+
+**Equality Match with a Single Join Condition:**
+
+```js
+{
+   $lookup:
+     {
+       from: <collection to join>,
+       localField: <field from the input documents>,
+       foreignField: <field from the documents of the "from" collection>,
+       as: <output array field>
+     }
+}
+```
+
+**Join Conditions and Subqueries on a Joined Collection:**
+
+To perform correlated and uncorrelated subqueries with two collections, and perform other join conditions besides a single equality match, use this `$lookup` syntax:
+
+```js
+{
+   $lookup:
+      {
+         from: <joined collection>,
+         let: { <var_1>: <expression>, …, <var_n>: <expression> },
+         pipeline: [ <pipeline to run on joined collection> ],
+         as: <output array field>
+      }
+}
+```
+
+**Behavior:**
+
+**Views and Collation:**
+
+If performing an aggregation that involves multiple views, such as with `$lookup` or `$graphLookup`, the views must have the same collation.
+
+**Restriction:**
+
+You cannot include the `$out` or the `$merge` stage in the `$lookup` stage. That is, when specifying a pipeline for the joined collection, you cannot include either stage in the pipeline field.
+
+**Example:**
+
+Create a collection `orders` with these documents:
+
+```js
+db.orders.insertMany( [
+   { "_id" : 1, "item" : "almonds", "price" : 12, "quantity" : 2 },
+   { "_id" : 2, "item" : "pecans", "price" : 20, "quantity" : 1 },
+   { "_id" : 3  }
+] )
+```
+
+Create another collection `inventory` with these documents:
+
+```js
+db.inventory.insertMany( [
+   { "_id" : 1, "sku" : "almonds", "description": "product 1", "instock" : 120 },
+   { "_id" : 2, "sku" : "bread", "description": "product 2", "instock" : 80 },
+   { "_id" : 3, "sku" : "cashews", "description": "product 3", "instock" : 60 },
+   { "_id" : 4, "sku" : "pecans", "description": "product 4", "instock" : 70 },
+   { "_id" : 5, "sku": null, "description": "Incomplete" },
+   { "_id" : 6 }
+] )
+```
+
+The following aggregation operation on the `orders` collection joins the documents from `orders` with the documents from the `inventory` collection using the fields `item` from the `orders` collection and the `sku` field from the `inventory` collection:
+
+```js
+db.orders.aggregate( [
+   {
+     $lookup:
+       {
+         from: "inventory",
+         localField: "item",
+         foreignField: "sku",
+         as: "inventory_docs"
+       }
+  }
+] )
+
+//expected output
+{
+   "_id" : 1,
+   "item" : "almonds",
+   "price" : 12,
+   "quantity" : 2,
+   "inventory_docs" : [
+      { "_id" : 1, "sku" : "almonds", "description" : "product 1", "instock" : 120 }
+   ]
+}
+{
+   "_id" : 2,
+   "item" : "pecans",
+   "price" : 20,
+   "quantity" : 1,
+   "inventory_docs" : [
+      { "_id" : 4, "sku" : "pecans", "description" : "product 4", "instock" : 70 }
+   ]
+}
+{
+   "_id" : 3,
+   "inventory_docs" : [
+      { "_id" : 5, "sku" : null, "description" : "Incomplete" },
+      { "_id" : 6 }
+   ]
+}
+```
+
+**Use `$lookup` with `$mergeObjects`**
+
+We have 2 collections is `orders` and `items` likely below:
+
+```js
+db.orders.insertMany( [
+   { "_id" : 1, "item" : "almonds", "price" : 12, "quantity" : 2 },
+   { "_id" : 2, "item" : "pecans", "price" : 20, "quantity" : 1 }
+] )
+
+db.items.insertMany( [
+  { "_id" : 1, "item" : "almonds", description: "almond clusters", "instock" : 120 },
+  { "_id" : 2, "item" : "bread", description: "raisin and nut bread", "instock" : 80 },
+  { "_id" : 3, "item" : "pecans", description: "candied pecans", "instock" : 60 }
+] )
+```
+
+The following operation first uses the `$lookup` stage to join the two collections by the `item` fields and then uses `$mergeObjects` in the `$replaceRoot` to merge the joined documents from items and orders:
+
+```js
+db.orders.aggregate( [
+   {
+      $lookup: {
+         from: "items",
+         localField: "item",    // field in the orders collection
+         foreignField: "item",  // field in the items collection
+         as: "fromItems"
+      }
+   },
+   {
+      $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$fromItems", 0 ] }, "$$ROOT" ] } }
+   },
+   { $project: { fromItems: 0 } }
+] )
+
+//expected output
+{
+  _id: 1,
+  item: 'almonds',
+  description: 'almond clusters',
+  instock: 120,
+  price: 12,
+  quantity: 2
+},
+{
+  _id: 2,
+  item: 'pecans',
+  description: 'candied pecans',
+  instock: 60,
+  price: 20,
+  quantity: 1
+}
+```
+
+#### **$graphLookup**
+
+Performs a recursive search on a collection, with options for restricting the search by recursion depth and query filter.
+
+The `$graphLookup` search process is summarized below:
+
+1. Input documents flow into the $graphLookup stage of an aggregation operation.
+
+2. `$graphLookup` targets the search to the collection designated by the from parameter (see below for full list of search parameters).
+
+3. For each input document, the search begins with the value designated by startWith.
+
+4. `$graphLookup` matches the `startWith` value against the field designated by `connectToField` in other documents in the `from` collection.
+
+5. For each matching document, `$graphLookup` takes the value of the `connectFromField` and checks every document in the `from` collection for a matching `connectToField` value. For each match, `$graphLookup` adds the matching document in the `from` collection to an array field named by the `as` parameter. This step continues recursively until no more matching documents are found, or until the operation reaches a recursion depth specified by the `maxDepth` parameter. `$graphLookup` then appends the array field to the input document. `$graphLookup` returns results after completing its search on all input documents.
+
+**Syntax:**
+
+```js
+{
+   $graphLookup: {
+      from: <collection>,
+      startWith: <expression>,
+      connectFromField: <string>,
+      connectToField: <string>,
+      as: <string>,
+      maxDepth: <number>,
+      depthField: <string>,
+      restrictSearchWithMatch: <document>
+   }
+}
+```
+
+**Example:**
+
+**Within a Single Collection**
+
+Assume we have the following documents:
+
+```js
+{ "_id" : 1, "name" : "Dev" }
+{ "_id" : 2, "name" : "Eliot", "reportsTo" : "Dev" }
+{ "_id" : 3, "name" : "Ron", "reportsTo" : "Eliot" }
+{ "_id" : 4, "name" : "Andrew", "reportsTo" : "Eliot" }
+{ "_id" : 5, "name" : "Asya", "reportsTo" : "Ron" }
+{ "_id" : 6, "name" : "Dan", "reportsTo" : "Andrew" }
+```
+
+The following `$graphLookup` operation recursively matches on the `reportsTo` and `name`   fields in the `employees` collection, returning the reporting hierarchy for each person:
+
+```js
+db.employees.aggregate( [
+   {
+      $graphLookup: {
+         from: "employees",
+         startWith: "$reportsTo",
+         connectFromField: "reportsTo",
+         connectToField: "name",
+         as: "reportingHierarchy"
+      }
+   }
+] )
+
+//expected output
+{
+   "_id" : 1,
+   "name" : "Dev",
+   "reportingHierarchy" : [ ]
+}
+{
+   "_id" : 2,
+   "name" : "Eliot",
+   "reportsTo" : "Dev",
+   "reportingHierarchy" : [
+      { "_id" : 1, "name" : "Dev" }
+   ]
+}
+{
+   "_id" : 3,
+   "name" : "Ron",
+   "reportsTo" : "Eliot",
+   "reportingHierarchy" : [
+      { "_id" : 1, "name" : "Dev" },
+      { "_id" : 2, "name" : "Eliot", "reportsTo" : "Dev" }
+   ]
+}
+{
+   "_id" : 4,
+   "name" : "Andrew",
+   "reportsTo" : "Eliot",
+   "reportingHierarchy" : [
+      { "_id" : 1, "name" : "Dev" },
+      { "_id" : 2, "name" : "Eliot", "reportsTo" : "Dev" }
+   ]
+}
+{
+   "_id" : 5,
+   "name" : "Asya",
+   "reportsTo" : "Ron",
+   "reportingHierarchy" : [
+      { "_id" : 1, "name" : "Dev" },
+      { "_id" : 2, "name" : "Eliot", "reportsTo" : "Dev" },
+      { "_id" : 3, "name" : "Ron", "reportsTo" : "Eliot" }
+   ]
+}
+{
+   "_id" : 6,
+   "name" : "Dan",
+   "reportsTo" : "Andrew",
+   "reportingHierarchy" : [
+      { "_id" : 1, "name" : "Dev" },
+      { "_id" : 2, "name" : "Eliot", "reportsTo" : "Dev" },
+      { "_id" : 4, "name" : "Andrew", "reportsTo" : "Eliot" }
+   ]
+}
+```
 ### 6.2 Indexes
 
 Indexes support the efficient execution of queries in MongoDB. Without indexes, MongoDB must perform a collection scan, i.e. scan every document in a collection, to select those documents that match the query statement. If an appropriate index exists for a query, MongoDB can use the index to limit the number of documents it must inspect.
