@@ -2,7 +2,6 @@
 
 * [1. ORM](#1-orm)
 * [2. Driver](#2-driver)
-* [3. Schema](#3-schema)
 * [4. Type of MongoDB](#4-type-of-mongodb)
 * [5. Mongoose](#5-mongoose)
 * [6. MongoDB Advanced](#6-mongodb-advanced)
@@ -11,29 +10,11 @@
 
 ORM is a programming technique that helps to map data records in the database management system to the type of objects defined in classes.
 
-**Object Relational Mapping (ORM)** is a technique used in creating a "bridge" between object-oriented programs and, in most cases, relational databases.
-
 Put another way, you can see the ORM as the layer that connects object oriented programming (OOP) to relational databases.
 
 The ORM and ORM tools help simplify the interaction between relational databases and different OOP languages.
 
-### 1.1 What is an ORM Tool ?
-
-An ORM tool is software designed to help OOP developers interact with relational databases.
-
-Here's an example of SQL code that retrieves information about a particular user from a database:
-
-```sql
-"SELECT id, name, email, country, phone_number FROM users WHERE id = 20"
-```
-
-On the other hand, an ORM tool can do the same query as above with simpler methods. That is:
-
-```sql
-users.GetById(20)
-```
-
-### 1.2 Advantage of ORM
+### 1.1 Advantage of ORM
 
 * It speeds up development time for teams.
 * Easy to reuse and maintain.
@@ -41,13 +22,13 @@ users.GetById(20)
 * A lot of things are done "automatically", regarding data processing.
 * You don't need to know too much about that database management system, you can still easily access it through ORM.
 
-### 1.3 Disadvantage of ORM
+### 1.2 Disadvantage of ORM
 
 * With each framework there will be a different ORM library, so that you have to take time to learn it. And since they are libraries it will be very "heavy".
 * They are likely not going to perform better when very complex queries are involved.
 * ORMs are generally slower than using SQL.
 
-### 1.4 Reason why ORM slower than Raw SQL
+### 1.3 Reason why ORM slower than Raw SQL
 
 ORM needs time to create `Model instances`, create `properties` for the `model` and `transform`the model object into relational data before communicating with the database.
 
@@ -77,55 +58,6 @@ The driver works like an adaptor which connects a generic interface to a specifi
 |Secure | SQL Injection|
 | Appropriate with small project | Appropriate with complex project |
 
->## 3. Schema
-
-### 3.1 What is a Schema ?
-
-A schema is a JSON object that defines the the structure and contents of your data.
-
-Schemas represent types of data rather than specific values.
-
-### 3.2 Why define a Schema ?
-
-Schemas are the specification for your application's data model. Once you've defined a schema, App Services provides you with additional tools and services to work with data that conforms to the schema.
-
-App Services uses schemas in many application services:
-
-* Atlas Device Sync uses schemas to sync data between realms and MongoDB Atlas. App Services can also generate idiomatic SDK object models for you based on your schemas.
-
-* The GraphQL API uses schemas to automatically generate a GraphQL schema including types, queries, and mutations. You can extend your app's API with custom resolvers that reference the types defined by your schemas.
-
-* Data Access Rules validate that data conforms to your schema before and after every request. If any document fails validation, App Services prevents or rolls back the entire request.
-
-### 3.3 Define a Schema
-
-A root-level collection schema can contain additional schemas that describe the type's properties. Each root-level schema is an object schema that has the following form:
-
-```json
-{
-  "bsonType": "object",
-  "title": "<Type Name>",
-  "required": ["<Required Field Name>", ...],
-  "properties": {
-    "<Field Name>": <Schema>
-  }
-}
-```
-
-### 3.4 Relationships
-
-A relationship is a connection between two documents. Relationships allow you to reference and query related documents in read and write operations, even if the documents are in separate databases or collections.
-
-Relationships are unidirectional and don't enforce uniqueness or other foreign key constraints. If you reference a non-existent foreign value in a source field, App Services automatically omits the reference from resolved relationships.
-
-### 3.5 To-One relationship
-
-A to-one relationship links each source document with either a single document or an array of documents from the foreign collection.
-
-### 3.6 To-Many relationship
-
-A to-many relationship links each source document with a list of documents from the foreign collection.
-
 >## 4. Type of MongoDB
 
 MongoDB is a `NoSQL document database`. This mean MongoDB store data as documents. Documents are stored in collections.
@@ -141,16 +73,16 @@ MongoDB is a `NoSQL document database`. This mean MongoDB store data as document
 
 ### 4.2 CAP Property
 
-* `Consistency`: means that the nodes will have the same copies of a replicated data item visible for various transactions. A guarantee that every node in a distributed cluster returns the same, most recent and a successful write. Consistency refers to every client having the same view of the data. There are various types of consistency models. Consistency in CAP refers to sequential consistency, a very strong form of consistency.
-* `Availability`: means that each read or write request for a data item will either be processed successfully or will receive a message that the operation cannot be completed. Every non-failing node returns a response for all the read and write requests in a reasonable amount of time. The key word here is “every”. In simple terms, every node (on either side of a network partition) must be able to respond in a reasonable amount of time
-* `Partition tolerance`: means that the system can continue operating even if the network connecting the nodes has a fault that results in two or more partitions, where the nodes in each partition can only communicate among each other. That means, the system continues to function and upholds its consistency guarantees in spite of network partitions. Network partitions are a fact of life. Distributed systems guaranteeing partition tolerance can gracefully recover from partitions once the partition heals
+* `Consistency`
+* `Availability`
+* `Partition tolerance`
 
 ### 4.3 ACID Property
 
-* `Atomicity`: the entire transaction takes place at once or doesn’t happen at all. Each transaction is considered as one unit and either runs to completion or is not executed at all.
-* `Consistency`: This means that integrity constraints must be maintained so that the database is consistent before and after the transaction.
-* `Isolation`: This property ensures that multiple transactions can occur concurrently without leading to the inconsistency of the database state. Transactions occur independently without interference. Changes occurring in a particular transaction will not be visible to any other transaction until that particular change in that transaction is written to memory or has been committed. This property ensures that the execution of transactions concurrently will result in a state that is equivalent to a state achieved these were executed serially in some order.
-* `Durability`: This property ensures that once the transaction has completed execution, the updates and modifications to the database are stored in and written to disk and they persist even if a system failure occurs. These updates now become permanent and are stored in non-volatile memory. The effects of the transaction, thus, are never lost.
+* `Atomicity`
+* `Consistency`
+* `Isolation`
+* `Durability`
 
 >## 5. Mongoose
 
@@ -158,42 +90,13 @@ MongoDB is a `NoSQL document database`. This mean MongoDB store data as document
 
 Each schema maps to a MongoDB collection and defines the shape of the documents within that collection.
 
-```js
-import mongoose from 'mongoose';
-const { Schema } = mongoose;
-
-const blogSchema = new Schema({
-  title:  String, // String is shorthand for {type: String}
-  author: String,
-  body:   String,
-  comments: [{ body: String, date: Date }],
-  date: { type: Date, default: Date.now },
-  hidden: Boolean,
-  meta: {
-    votes: Number,
-    favs:  Number
-  }
-});
-```
-
-Keys may also be assigned nested objects containing further key/type definitions. This will happen whenever a key's value is a POJO that doesn't have a `type` property.
-
-In these cases, Mongoose only creates actual schema paths for leaves in the tree, and the branches do not have actual paths. A side-effect of this is that that property cannot have its own validation. If validation is needed up the tree, a path needs to be created up the tree.
-
 Schemas not only define the structure of your document and casting of properties, they also define document instance methods, static Model methods, compound indexes, and document lifecycle hooks called middleware.
 
 #### **Creating model**
 
-To use our schema definition, we need to convert our blogSchema into a Model we can work with. To do so, we pass it into mongoose.model(modelName, schema):
-
-```js
-const Blog = mongoose.model('Blog', blogSchema);
-// ready to go!
-```
-
 By default, Mongoose adds an `_id` property to your schemas.
 
-When you create a new document with the automatically added `_id` property, Mongoose creates a new _id of type ObjectId to your document.
+When you create a new document with the automatically added `_id` property, Mongoose creates a new `_id` of type ObjectId to your document.
 
 ```js
 const Model = mongoose.model('Test', schema);
@@ -349,13 +252,7 @@ const axl = new Person({
 });
 ```
 
-Suppose you want to print out the person's full name. You could do it yourself:
-
-```js
-console.log(axl.name.first + ' ' + axl.name.last); // Axl Rose
-```
-
-But concatenating the first and last name every time can get cumbersome. And what if you want to do some extra processing on the name, like removing diacritics? A virtual property getter lets you define a `fullName` property that won't get persisted to MongoDB.
+A virtual property getter lets you define a `fullName` property that won't get persisted to MongoDB.
 
 ```js
 // That can be done either by adding it to schema options:
@@ -372,11 +269,6 @@ const personSchema = new Schema({
       }
     }
   }
-});
-
-// Or by using the virtual method as following:  
-personSchema.virtual('fullName').get(function() {
-  return this.name.first + ' ' + this.name.last;
 });
 ```
 
@@ -410,17 +302,6 @@ const personSchema = new Schema({
     }
   }
 });
-
-// Or by using the virtual method as following:
-personSchema.virtual('fullName').
-  get(function() {
-    return this.name.first + ' ' + this.name.last;
-  }).
-  set(function(v) {
-    this.name.first = v.substr(0, v.indexOf(' '));
-    this.name.last = v.substr(v.indexOf(' ') + 1);
-  });
-
 axl.fullName = 'William Rose'; // Now `axl.name.first` is "William"
 ```
 
@@ -477,113 +358,6 @@ const parentSchema = new Schema({
 ### 5.2 Models
 
 Models are fancy constructors compiled from `Schema` definitions. An instance of a model is called a document. Models are responsible for creating and reading documents from the underlying MongoDB database.
-
-#### **Compiling your first model**
-
-When you call `mongoose.model()` on a schema, Mongoose compiles a model for you.
-
-```js
-const schema = new mongoose.Schema({ name: 'string', size: 'string' });
-const Tank = mongoose.model('Tank', schema);
-```
-
-The first argument is the singular name of the collection your model is for. **Mongoose automatically looks for the plural, lowercased version of your model name**. Thus, for the example above, the model Tank is for the tanks collection in the database.
-
-**Note**: The `.model()` function makes a copy of schema. Make sure that you've added everything you want to schema, including hooks, before calling `.model()`!
-
-#### **Constructing documents**
-
-An instance of a model is called a document. Creating them and saving to the database is easy.
-
-```js
-const Tank = mongoose.model('Tank', yourSchema);
-
-const small = new Tank({ size: 'small' });
-small.save(function (err) {
-  if (err) return handleError(err);
-  // saved!
-});
-
-// or
-
-Tank.create({ size: 'small' }, function (err, small) {
-  if (err) return handleError(err);
-  // saved!
-});
-
-// or, for inserting large batches of documents
-Tank.insertMany([{ size: 'small' }], function(err) {
-
-});
-```
-
-Note that no tanks will be created/removed until the connection your model uses is open. Every model has an associated connection. When you use mongoose.model(), your model will use the default mongoose connection.
-
-```js
-mongoose.connect('mongodb://localhost/gettingstarted');
-```
-
-If you create a custom connection, use that connection's `model()` function instead.
-
-```js
-const connection = mongoose.createConnection('mongodb://localhost:27017/test');
-const Tank = connection.model('Tank', yourSchema);
-```
-
-#### **Querying**
-
-Finding documents is easy with Mongoose, which supports the rich query syntax of MongoDB. Documents can be retrieved using a `model`'s find, findById, findOne, or where static methods.
-
-```js
-Tank.find({ size: 'small' }).where('createdDate').gt(oneYearAgo).exec(callback);
-```
-
-#### **Deleting**
-
-Models have static `deleteOne()` and `deleteMany()` functions for removing all documents matching the given filter.
-
-```js
-Tank.deleteOne({ size: 'large' }, function (err) {
-  if (err) return handleError(err);
-  // deleted at most one tank document
-});
-```
-
-#### **Updating**
-
-Each `model` has its own `update` method for modifying documents in the database without returning them to your application. See the API docs for more detail.
-
-```js
-Tank.updateOne({ size: 'large' }, { name: 'T-90' }, function(err, res) {
-  // Updated at most one doc, `res.nModified` contains the number
-  // of docs that MongoDB updated
-});
-```
-
-*If you want to update a single document in the db and return it to your application, use findOneAndUpdate instead.*
-
-#### **Change Streams**
-
-Change streams provide a way for you to listen to all inserts and updates going through your MongoDB database. Note that change streams do not work unless you're connected to a MongoDB replica set.
-
-```js
-async function run() {
-  // Create a new mongoose model
-  const personSchema = new mongoose.Schema({
-    name: String
-  });
-  const Person = mongoose.model('Person', personSchema);
-
-  // Create a change stream. The 'change' event gets emitted when there's a
-  // change in the database
-  Person.watch().
-    on('change', data => console.log(new Date(), data));
-
-  // Insert a doc, will trigger the change stream handler above
-  console.log(new Date(), 'Inserting doc');
-  await Person.create({ name: 'Axl Rose' });
-}
-```
 
 ### 5.3 CRUD with Mongoose
 
@@ -669,7 +443,7 @@ await Character.deleteOne({ name: 'Eddard Stark' }); // returns {deletedCount: 1
 
 Mongoose has a more powerful alternative called `populate()`, which lets you reference documents in other collections.
 
-Population is the process of automatically replacing the specified paths in the document with document(s) from other collection(s). We may populate a single document, multiple documents, a plain object, multiple plain objects, or all objects returned from a query. Let's look at some examples.
+Population is the process of automatically replacing the specified paths in the document with document(s) from other collection(s).
 
 ```js
 const mongoose = require('mongoose');
@@ -739,20 +513,6 @@ Populated paths are no longer set to their original `_id` , their value is repla
 
 Arrays of refs work the same way. Just call the populate method on the query and an array of documents will be returned in place of the original `_id`s.
 
-#### **Setting Populated Fields**
-
-You can manually populate a property by setting it to a document. The document must be an instance of the model your `ref` property refers to.
-
-```js
-Story.findOne({ title: 'Casino Royale' }, function(error, story) {
-  if (error) {
-    return handleError(error);
-  }
-  story.author = author;
-  console.log(story.author.name); // prints "Ian Fleming"
-});
-```
-
 #### **Checking Whether a Field is Populated**
 
 You can call the `populated()` function to check whether a field is populated. If `populated()` returns a truthy value, you can assume the field is populated.
@@ -775,50 +535,6 @@ story.populated('author'); // undefined
 
 story.author instanceof ObjectId; // true
 story.author._id; // ObjectId, because Mongoose adds a special getter
-```
-
-#### **Field Selection**
-
-What if we only want a few specific fields returned for the populated documents? This can be accomplished by passing the usual field name syntax as the second argument to the populate method:
-
-```js
-Story.
-  findOne({ title: /casino royale/i }).
-  populate('author', 'name'). // only return the Persons name
-  exec(function (err, story) {
-    if (err) return handleError(err);
-
-    console.log('The author is %s', story.author.name);
-    // prints "The author is Ian Fleming"
-
-    console.log('The authors age is %s', story.author.age);
-    // prints "The authors age is null"
-  });
-```
-
-#### **Populating Multiple Paths**
-
-What if we wanted to populate multiple paths at the same time?
-
-```js
-Story.
-  find(...).
-  populate('fans').
-  populate('author').
-  exec();
-```
-
-If you call `populate()` multiple times with the same path, only the last one will take effect.
-
-```js
-// The 2nd `populate()` call below overwrites the first because they
-// both populate 'fans'.
-Story.
-  find().
-  populate({ path: 'fans', select: 'name' }).
-  populate({ path: 'fans', select: 'email' });
-// The above is equivalent to:
-Story.find().populate({ path: 'fans', select: 'email' });
 ```
 
 #### **Query conditions and other options**
@@ -876,7 +592,7 @@ stories[1].name; // 'Live and Let Die'
 stories[1].fans.length; // 0
 ```
 
-That's because, in order to avoid executing a separate query for each document, Mongoose instead queries for fans using numDocuments * limit as the limit. If you need the correct limit, you should use the perDocumentLimit option (new in Mongoose 5.9.0). Just keep in mind that populate() will execute a separate query for each story, which may cause populate() to be slower.
+That's because, in order to avoid executing a separate query for each document, Mongoose instead queries for fans using `numDocuments * limit` as the limit. If you need the correct `limit`, you should use the `perDocumentLimit` option (new in Mongoose 5.9.0). Just keep in mind that `populate()` will execute a separate query for each story, which may cause `populate()` to be slower.
 
 ```js
 const stories = await Story.find().populate({
@@ -929,7 +645,7 @@ Story.
   });
 ```
 
-The documents returned from query population become fully functional, removeable, saveable documents unless the lean option is specified. Do not confuse them with sub docs. Take caution when calling its remove method because you'll be removing it from the database, not just the array.
+The documents returned from query population become fully functional, `removeable`, `saveable` documents unless the lean option is specified. Do not confuse them with sub docs. Take caution when calling its remove method because you'll be removing it from the database, not just the array.
 
 #### **Dynamic References via `refPath`**
 
@@ -1085,17 +801,10 @@ An aggregation pipeline consists of one or more stages that process documents:
 * Each stage performs an operation on the input documents. For example, a stage can filter documents, group documents, and calculate values.
 * The documents that are output from a stage are passed to the next stage.
 * An aggregation pipeline can return results for groups of documents. For example, return the total, average, maximum, and minimum values.
-* Pipelines are always an array of one or more stages
-* Stages are composed of one or more aggregation operator or expressions.
-  * Expression may take a single argument or an array of arguments. This is expression depentdant
 
 #### **Aggregation Pipeline Limits:**
 
 * Result Size Restrictions: The `aggregate` command can either return a cursor or store the results in a collection. Each document in the result set is subject to the 16 megabyte BSON Document Size limit. If any single document exceeds the BSON Document Size limit, the aggregation produces an error. The limit only applies to the returned documents. During the pipeline processing, the documents may exceed this size. The `db.collection.aggregate()` method returns a cursor by default
-* Number of Stages Restrictions: MongoDB 5.0 limits the number of aggregation pipeline stages allowed in a single pipeline to 1000.
-* Memory Restrictions: Starting in MongoDB 6.0, the allowDiskUseByDefault parameter controls whether pipeline stages that require more than 100 megabytes of memory to execute write temporary files to disk by default.
-
-The `$search` aggregation stage is not restricted to 100 megabytes of RAM because it runs in a separate process.
 
 #### **Different between Aggregation and MQL**
 
@@ -1652,7 +1361,7 @@ The `$graphLookup` search process is summarized below:
 
 **Example:**
 
-**Within a Single Collection**
+**Within a Single Collection:**
 
 Assume we have the following documents:
 
@@ -1733,6 +1442,49 @@ db.employees.aggregate( [
    ]
 }
 ```
+
+#### **$bucket**
+
+Categorizes incoming documents into groups, called buckets, based on a specified expression and bucket boundaries and outputs a document per each bucket. Each output document contains an _id field whose value specifies the inclusive lower bound of the bucket.
+
+`$bucket` only produces output documents for buckets that contain at least one input document.
+
+#### **$out**
+
+Takes the documents returned by the aggregation pipeline and writes them to a specified collection.
+
+The `$out` stage must be the last stage in the pipeline. The `$out` operator lets the aggregation framework return result sets of any size.
+
+`$out` replaces the specified collection if it exists
+
+**Examples:**
+
+Create a collection `books` with the following documents:
+
+```js
+db.getSiblingDB("test").books.insertMany([
+   { "_id" : 8751, "title" : "The Banquet", "author" : "Dante", "copies" : 2 },
+   { "_id" : 8752, "title" : "Divine Comedy", "author" : "Dante", "copies" : 1 },
+   { "_id" : 8645, "title" : "Eclogues", "author" : "Dante", "copies" : 2 },
+   { "_id" : 7000, "title" : "The Odyssey", "author" : "Homer", "copies" : 10 },
+   { "_id" : 7020, "title" : "Iliad", "author" : "Homer", "copies" : 10 }
+])
+```
+
+The following aggregation operation pivots the data in the `books` collection in the test database to have titles grouped by authors and then writes the results to the `authors` collection, also in the `test` database.
+
+```js
+db.getSiblingDB("test").books.aggregate( [
+    { $group : { _id : "$author", books: { $push: "$title" } } },
+    { $out : "authors" }
+] )
+
+//expected output
+
+{ "_id" : "Homer", "books" : [ "The Odyssey", "Iliad" ] }
+{ "_id" : "Dante", "books" : [ "The Banquet", "Divine Comedy", "Eclogues" ] }
+```
+
 ### 6.2 Indexes
 
 Indexes support the efficient execution of queries in MongoDB. Without indexes, MongoDB must perform a collection scan, i.e. scan every document in a collection, to select those documents that match the query statement. If an appropriate index exists for a query, MongoDB can use the index to limit the number of documents it must inspect.
@@ -1740,10 +1492,6 @@ Indexes support the efficient execution of queries in MongoDB. Without indexes, 
 Indexes are special data structures [1] that store a small portion of the collection's data set in an easy to traverse form. The index stores the value of a specific field or set of fields, ordered by the value of the field. The ordering of the index entries supports efficient equality matches and range-based query operations. In addition, MongoDB can return sorted results by using the ordering in the index.
 
 Cons: With each additional index, wwe decrease our write speed for a collection. We don't want to have too many unecessary indexes in a collection because they would be unnecessary loss in insert, update, delete performance
-
-#### **Default `_id` Index**
-
-MongoDB creates a unique index on the `_id` field during the creation of a collection. The `_id` index prevents clients from inserting two documents with the same value for the `_id` field. You cannot drop this index on the `_id` field.
 
 #### **Index Types**
 
@@ -1930,3 +1678,37 @@ An index can support sort operations on a non-prefix subset of the index key pat
 If the query does **not** specify an equality condition on an index prefix that precedes or overlaps with the sort specification, the operation will **not** efficiently use the index.
 
 ### 6.4 Data Modeling
+
+#### **Relationships**
+
+**One to Many:**
+
+Prefer embedding over referencing for simplicity, or when there is a small number of referenced documents as all related information is kept together.
+
+Prefer referencing when the associated documents are not always needed with the most often queried documents
+
+**Many to Many:**
+
+Prefer embedding for information that is primarily static over time and may profit from duplication
+
+Prefer referencing over embedding to avoid managing duplication
+
+#### **Pattern**
+
+**Attribute Pattern:**
+
+Problem:
+
+* Lots of similar fields
+* Want to search across many fields at one
+* Fields present it only a small subset of documents.
+
+Solution:
+
+* Break the field/value into a sub-document
+
+Benefits and Trade-Offs:
+
+* Easier to index
+* Allow for non-deterministic field names
+* Ability to qualify the relationship of the original field and value
