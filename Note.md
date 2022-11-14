@@ -2,13 +2,27 @@
 
 ## Indexes
 
+Indexes là một cấu trúc dữ liệu dùng để cải thiện performance, hỗ trọ tìm kiếm match và range hiệu quả, và có thể dùng để sort kết quả. Indexes được tạo ra chỉ để return data mà người dùng yêu cầu, không phải scan từng document trong collection
+
 Cơ chế sort bình thừong, la se lay document tu disk chuyen qua RAM va sort tren RAM
 
 ## Compound indexes
 
+Đánh index trên multiple field
+
+Hỗ trợ support các câu lệnh query trùng với prefix của index fields.
+
 Ta co the dung index de sort.
 
-Doi voi compound indexes. Thu tu cua cac field rat quan trong.
+Đối với compound indexes, thứ tự các field rất quan trọng
+
+## Multikey indexes
+
+Sử dụng cho Array
+
+Chỉ có 1 multikey indexes cho 1 collection
+
+Multikey indexes cần fetch lại documents sau giai đoạn index scan bởi vì index của các phần tử trong mảng được lưu độc lập
 
 ## Test Indexes
 

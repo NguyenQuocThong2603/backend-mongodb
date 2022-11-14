@@ -37,6 +37,21 @@ Populate dùng để reference các documents trong các collection khác. Popul
 
 ## Câu 7: Design quan hệ 1:1, 1:many, many:many như thế nào
 
+Quan hệ 1:1: gồm các thuộc tính có liên quan đến nhau thành 1 bảng. Có 2 cách là Embed và Reference:
+
+* Embed: tập hợp các thuộc tính lại vói nhau trong 1 document hoặc trong 1 sub-document (simplicity)
+* Reference: có thể chia các thuộc tính thành nhiều documents khác nhau, thường là ở trong các collection khác nhau và tạo reference từ document này qua document khác (optimization)
+
+Quan hệ 1:many: Có 2 cách là Embed và Reference:
+
+* Embed: có thể tạo embed từ phía "one" hoặc từ phía "many" (các document có thể bị duplicated). Thường là tạo trong đối tượng được query nhiều nhất. Tạo embed document của phía "one" trong phía "many" (chỉ các thuộc tính mình cần)
+* Reference: tạo link từ phía "one" hoặc từ phía "many". Thường là tạo reference ở phía "many"
+
+Quan hệ many:many: Cũng có 2 cách là Embed và Reference:
+
+* Embed: tạo mảng embedded document ở 1 trong 2 phía. Thường là phía được query nhiều hơn. 
+* Reference:
+
 ## Câu 8
 
 ```js
