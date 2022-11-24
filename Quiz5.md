@@ -49,7 +49,7 @@ Quan hệ 1:many: Có 2 cách là Embed và Reference:
 
 Quan hệ many:many: Cũng có 2 cách là Embed và Reference:
 
-* Embed: tạo mảng embedded document ở 1 trong 2 phía. Thường là phía được query nhiều hơn. 
+* Embed: tạo mảng embedded document ở 1 trong 2 phía. Thường là phía được query nhiều hơn.
 * Reference:
 
 ## Câu 8
@@ -77,3 +77,5 @@ db.users.aggregate([
 ```
 
 ## Câu 10: Aggregate là gì ? So sánh aggregate và populate
+
+Aggregate là quy trình truy vấn data thông qua nhiều các stage khác nhau.

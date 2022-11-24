@@ -6,6 +6,8 @@ Indexes là một cấu trúc dữ liệu dùng để cải thiện performance,
 
 Cơ chế sort bình thừong, la se lay document tu disk chuyen qua RAM va sort tren RAM
 
+Trước khi delete 1 index, hide index đó để biết index đó có ảnh hưởng tới performance của query hay không
+
 ## Compound indexes
 
 Đánh index trên multiple field
@@ -14,7 +16,9 @@ Hỗ trợ support các câu lệnh query trùng với prefix của index fields
 
 Ta co the dung index de sort.
 
-Đối với compound indexes, thứ tự các field rất quan trọng
+Đối với compound indexes, thứ tự các field rất quan trọng.
+
+Tạo các field equality,sort,range
 
 ## Multikey indexes
 
