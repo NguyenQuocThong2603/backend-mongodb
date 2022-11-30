@@ -1,7 +1,7 @@
 import express from 'express';
 import UrlController from '../controllers/url.controller.js';
 import authenticated from '../middlewares/authenticated.mdw.js';
-import cacheData from '../middlewares/cache.js';
+import cacheData from '../middlewares/cache.mdw.js';
 
 const urlRouter = express.Router();
 

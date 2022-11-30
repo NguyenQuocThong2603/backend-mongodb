@@ -20,23 +20,29 @@ const app = express();
 
 const RedisStore = ConnectRedis(session);
 
-const oneHour = 1000 * 60 * 60;
 app.use(session({
   store: new RedisStore({ client: clientRedis }),
   secret: config.SECRET,
-  saveUninitialized: true,
+  saveUninitialized: false,
   cookie: { secure: false,
     httpOnly: true,
-    maxAge: oneHour },
+    maxAge: parseInt(config.EXPIRED_TIME, 10) },
   resave: false,
 }));
 
+app.set('view engine', 'ejs');
+app.set('views', './src/views');
 app.use(cookieParser());
 
 app.use(morgan('dev'));
+app.use('/public', express.static('public'));
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+
+app.get('/', (req, res) => {
+  res.send('Hello');
+});
 
 if (process.env.NODE_ENV === 'testing') {
   connectDB(config.DATABASE_TEST_URL);
@@ -46,5 +52,3 @@ if (process.env.NODE_ENV === 'testing') {
 
 createRouter(app);
 app.listen(port, console.log(`Server is starting at port ${port}`));
-
-export default app;

@@ -5,16 +5,16 @@ class UserService {
     this.model = model;
   }
 
-  async findUser(username) {
+  async findUser(email) {
     const user = await this.model.findOne({
-      username,
-    });
+      email,
+    }).lean();
     return user;
   }
 
-  async createUser(username, password, fullName) {
+  async createUser(email, password, fullName) {
     const newUser = await this.model({
-      username,
+      email,
       password,
       fullName,
     });
