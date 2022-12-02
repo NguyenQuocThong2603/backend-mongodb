@@ -74,7 +74,7 @@ class UrlController {
       }
 
       const result = await this.service.deleteUrl(urlID);
-      return res.status(statusCode.ACCEPTED).json({ message: 'Delete short url succesfully', result });
+      return res.status(statusCode.ACCEPTED).json({ message: 'Delete short url succesfully', url });
     } catch (err) {
       return res.status(statusCode.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }

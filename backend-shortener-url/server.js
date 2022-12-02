@@ -30,19 +30,12 @@ app.use(session({
   resave: false,
 }));
 
-app.set('view engine', 'ejs');
-app.set('views', './src/views');
 app.use(cookieParser());
 
 app.use(morgan('dev'));
-app.use('/public', express.static('public'));
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-
-app.get('/', (req, res) => {
-  res.send('Hello');
-});
 
 if (process.env.NODE_ENV === 'testing') {
   connectDB(config.DATABASE_TEST_URL);

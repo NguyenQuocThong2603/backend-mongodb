@@ -8,10 +8,14 @@ class AdminController {
   }
 
   async disableUser(req, res) {
-    const { username } = req.params;
+    const { email } = req.query;
     try {
-      const keysOfSession = await clientRedis.lrange(username, 0, -1);
-      clientRedis.del(username);
+      const isExistKey = await clientRedis.keys(email);
+      if (!isExistKey) {
+        return res.status(statusCode.NOT_FOUND).json({ message: 'Not found this email' });
+      }
+      const keysOfSession = await clientRedis.lrange(email, 0, -1);
+      clientRedis.del(email);
       keysOfSession.forEach(key => {
         clientRedis.del(key);
       });

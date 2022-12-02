@@ -20,6 +20,13 @@ class UserService {
     });
     return newUser.save();
   }
+
+  async updatePassword(email, password) {
+    const user = await this.model.updateOne({
+      email,
+    }, { password });
+    return user;
+  }
 }
 
 export default new UserService(User);
