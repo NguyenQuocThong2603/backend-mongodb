@@ -11,7 +11,7 @@ class AdminController {
     const { email } = req.query;
     try {
       const isExistKey = await clientRedis.keys(email);
-      if (!isExistKey) {
+      if (isExistKey.length === 0) {
         return res.status(statusCode.NOT_FOUND).json({ message: 'Not found this email' });
       }
       const keysOfSession = await clientRedis.lrange(email, 0, -1);
