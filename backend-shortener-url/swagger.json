@@ -1,0 +1,37 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "API document for shortener-url",
+    "version": "1.0.0",
+    "title": "Shortener-URL API",
+    "contact": {
+      "email": "nguyenquocthong2603@gmail.com"
+    }
+  },
+  "schemes": ["http"],
+  "host": "localhost:3000",
+  "basePath": "/",
+  "tags":[
+    {
+      "name": "Auth"
+    }
+  ],
+  "paths":{
+    "/auth/login":{
+      "post":{
+        "summary": "Login to the app",
+        "description": "Login to the app",
+        "produces": ["application/json"],
+        "parameters": [{
+          "in": "body",
+          "name": "email",
+          "type": "string"
+        },{
+          "in": "body",
+          "name": "password",
+          "type": "string"
+        }]
+      }
+    }
+  }
+} 

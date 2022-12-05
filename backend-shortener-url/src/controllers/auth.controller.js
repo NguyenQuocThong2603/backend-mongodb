@@ -7,16 +7,12 @@ import statusCode from '../constants/statusCode.js';
 import UserService from '../services/user.service.js';
 
 const config = getConfig();
-class AuthController {
-  constructor(service) {
-    this.service = service;
-  }
-
+const AuthController = {
   async register(req, res) {
     const { email, password, fullName } = req.body;
 
     // check if user already exists
-    let user = await this.service.findUser(email);
+    let user = await UserService.findUserByEmail(email);
     if (user !== null) {
       return res.status(statusCode.BAD_REQUEST).json({ message: 'User already exists' });
     }
@@ -27,7 +23,7 @@ class AuthController {
 
     // create user
     try {
-      user = await this.service.createUser(email, hash, fullName);
+      user = await UserService.createUser(email, hash, fullName);
     } catch (err) {
       if (err._message === 'User validation failed') {
         return res.status(statusCode.BAD_REQUEST).json({ message: 'Input validation failed' });
@@ -41,26 +37,29 @@ class AuthController {
       fullName: user.fullName,
     };
     return res.status(statusCode.CREATED).json({ message: 'Create user successfully', user: userDTO });
-  }
+  },
 
   async login(req, res) {
     const { email, password } = req.body;
 
     try {
-    // check email or password is correct or not
-      const user = await this.service.findUser(email);
-      if (user === null) {
-        return res.status(statusCode.NOT_FOUND).json({ message: 'Email or password is incorrect' });
+      // check email or password is correct or not
+      const user = await UserService.findUserByEmail(email);
+      if (!user) {
+        return res.status(statusCode.BAD_REQUEST).json({ message: 'Email or password is incorrect' });
       }
 
-      if (user.password) {
-        const validPassword = bcrypt.compareSync(password, user.password);
+      if (!user.password) {
+        return res.status(statusCode.BAD_REQUEST).json({ message: 'Email or password is incorrect' });
+      }
+      const validPassword = bcrypt.compareSync(password, user.password);
 
-        if (validPassword === false) {
-          return res.status(statusCode.NOT_FOUND).json({ message: 'Email or password is incorrect' });
-        }
-      } else {
-        return res.status(statusCode.NOT_FOUND).json({ message: 'Email or password is incorrect' });
+      if (!validPassword) {
+        return res.status(statusCode.BAD_REQUEST).json({ message: 'Email or password is incorrect' });
+      }
+
+      if (user.isDisable) {
+        return res.status(statusCode.UNAUTHORIZED).json({ message: 'This account was disabled' });
       }
 
       // create session for user
@@ -78,7 +77,7 @@ class AuthController {
     } catch (err) {
       return res.status(statusCode.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
+  },
 
   async logout(req, res) {
     if (req.session) {
@@ -86,7 +85,7 @@ class AuthController {
       return res.status(statusCode.OK).json({ message: 'Logout successfully' });
     }
     return res.status(statusCode.BAD_REQUEST).json({ message: 'Unable to logout' });
-  }
+  },
 
   async googleLogin(req, res) {
     try {
@@ -98,7 +97,7 @@ class AuthController {
     } catch (err) {
       return res.status(statusCode.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
+  },
 
   async facebookLogin(req, res) {
     try {
@@ -110,13 +109,13 @@ class AuthController {
     } catch (err) {
       return res.status(statusCode.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
+  },
 
   async sendMailResetPassword(req, res) {
     const { email } = req.body;
     try {
-      const user = await this.service.findUser(email);
-      if (user === null) {
+      const user = await UserService.findUserByEmail(email);
+      if (!user) {
         return res.status(statusCode.NOT_FOUND).json({ message: 'Cannot found user' });
       }
       const resetCode = nanoid(10);
@@ -126,7 +125,7 @@ class AuthController {
     } catch (err) {
       return res.status(statusCode.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
+  },
 
   async resetPassword(req, res) {
     const { password } = req.body;
@@ -137,7 +136,7 @@ class AuthController {
       if (check) {
         const salt = bcrypt.genSaltSync(10);
         const hashPassword = bcrypt.hashSync(password, salt);
-        const user = await this.service.updatePassword(check, hashPassword);
+        const user = await UserService.updatePassword(check, hashPassword);
         await clientRedis.del(code);
         return res.status(statusCode.OK).json({ message: 'Reset password successfully', user });
       }
@@ -145,7 +144,7 @@ class AuthController {
     } catch (err) {
       return res.status(statusCode.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
-}
+  },
+};
 
-export default new AuthController(UserService);
+export default AuthController;

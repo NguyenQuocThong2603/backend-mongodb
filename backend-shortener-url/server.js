@@ -5,11 +5,13 @@ import morgan from 'morgan';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import ConnectRedis from 'connect-redis';
+import swaggerUi from 'swagger-ui-express';
 
 import createRouter from './src/routes/index.js';
 import connectDB from './src/config/db.js';
 import getConfig from './src/config/config.js';
 import clientRedis from './src/config/redis.js';
+import swaggerDocument from './swagger.json' assert { type: "json"};
 
 dotenv.config();
 
@@ -36,6 +38,8 @@ app.use(morgan('dev'));
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+
+app.use('/api-docs',swaggerUi.serve,swaggerUi.setup(swaggerDocument));
 
 if (process.env.NODE_ENV === 'testing') {
   connectDB(config.DATABASE_TEST_URL);

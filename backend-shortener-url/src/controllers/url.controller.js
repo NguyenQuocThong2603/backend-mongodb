@@ -4,15 +4,12 @@ import statusCode from '../constants/statusCode.js';
 import UrlService from '../services/url.service.js';
 import clientRedis from '../config/redis.js';
 
-class UrlController {
-  constructor(service) {
-    this.service = service;
-  }
+const UrlController = {
 
   async createUrl(req, res) {
     const { url } = req.body;
 
-    if (url === undefined || urlRegex({ exact: true }).test(url) === false) {
+    if (!url || urlRegex({ exact: true }).test(url) === false) {
       return res.status(statusCode.BAD_REQUEST).json({ message: 'Invalid request' });
     }
 
@@ -21,9 +18,9 @@ class UrlController {
       const urlID = nanoid(10);
 
       if (req.session.user !== undefined) {
-        newShortUrl = await this.service.createUrl(urlID, url, req.session.user);
+        newShortUrl = await UrlService.createUrl(urlID, url, req.session.user);
       } else {
-        newShortUrl = await this.service.createUrl(urlID, url);
+        newShortUrl = await UrlService.createUrl(urlID, url);
       }
     } catch (err) {
       return res.status(statusCode.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
@@ -36,16 +33,16 @@ class UrlController {
       count: newShortUrl.count,
     };
     return res.status(statusCode.CREATED).json({ message: 'Create short url successfully', url: urlDTO });
-  }
+  },
 
   async redirectUrl(req, res) {
     const { urlID } = req.params;
 
     try {
-      const url = await this.service.findUrl(urlID);
+      const url = await UrlService.findUrlByUrlID(urlID);
 
       if (url !== null) {
-        await this.service.updateUrl(url);
+        await UrlService.updateCountOfUrl(url);
         return res.redirect(url.originalUrl);
       }
 
@@ -53,13 +50,13 @@ class UrlController {
     } catch (err) {
       return res.status(statusCode.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
+  },
 
   async deleteUrl(req, res) {
     const { urlID } = req.params;
 
     try {
-      const url = await this.service.findUrl(urlID);
+      const url = await UrlService.findUrlByUrlID(urlID);
 
       if (url === null) {
         return res.status(statusCode.NOT_FOUND).json({ message: 'Can\'t found url to delete' });
@@ -73,25 +70,25 @@ class UrlController {
         return res.status(statusCode.FORBIDDEN).json({ message: 'Forbidden to delete this short url' });
       }
 
-      const result = await this.service.deleteUrl(urlID);
+      const result = await UrlService.deleteUrl(urlID);
       return res.status(statusCode.ACCEPTED).json({ message: 'Delete short url succesfully', url });
     } catch (err) {
       return res.status(statusCode.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
+  },
 
   async statistic(req, res) {
     try {
       const { user } = req.session;
 
-      const urls = await this.service.findAllUrlOfUser(user);
+      const urls = await UrlService.findAllUrlOfUser(user);
       await clientRedis.set(user.username, JSON.stringify(urls), 'EX', 180);
       return res.status(statusCode.OK).json(urls);
     } catch (err) {
       console.log(err);
       return res.status(statusCode.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
-}
+  },
+};
 
-export default new UrlController(UrlService);
+export default UrlController;

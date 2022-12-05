@@ -1,45 +1,41 @@
 import Url from '../models/url.model.js';
 
-class UserService {
-  constructor(model) {
-    this.model = model;
-  }
-
+const UrlService = {
   async createUrl(urlID, url, user = null) {
-    const newShortUrl = await this.model.create({
+    const newShortUrl = await Url.create({
       urlID,
       originalUrl: url,
       user,
     });
     return newShortUrl.save();
-  }
+  },
 
-  async findUrl(urlID) {
-    const url = await this.model.findOne({
+  async findUrlByUrlID(urlID) {
+    const url = await Url.findOne({
       urlID,
     });
     return url;
-  }
+  },
 
-  async updateUrl(url) {
-    await this.model.updateOne({
+  async updateCountOfUrl(url) {
+    await Url.updateOne({
       urlID: url.urlID,
-    }, { count: url.count += 1 });
-  }
+    }, { $inc: { count: 1 } });
+  },
 
   async deleteUrl(urlID) {
-    const deleteResult = await this.model.deleteOne({
+    const deleteResult = await Url.deleteOne({
       urlID,
     });
     return deleteResult;
-  }
+  },
 
   async findAllUrlOfUser(user) {
-    const urls = await this.model.find({
+    const urls = await Url.find({
       'user.username': user.username,
     }, { user: 0 });
 
-    // const urls = await this.model.aggregate([
+    // const urls = await Url.aggregate([
     //   {
     //     $match: {
     //       'user.username': user.username,
@@ -54,7 +50,7 @@ class UserService {
     //   },
     // ]);
     return urls;
-  }
-}
+  },
+};
 
-export default new UserService(Url);
+export default UrlService;
